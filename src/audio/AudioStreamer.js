@@ -60,70 +60,68 @@ class AudioStreamer {
       }
     }
 
-    // 2. 최고 비트레이트 오디오 스트림 추출 (opus/webm 선호)
-    let stream;
-    let type = StreamType.Arbitrary;
-
+    // 2. 최고 비트레이트 오디오 스트림 추출
+    let playStream;
     try {
-      // play-dl 파이프라인 시도
-      const playStream = await play.stream(url, {
-        quality: 2, // 2: Highest Audio Quality
-        discordPlayerCompatibility: false
+      playStream = await play.stream(url, {
+        quality: 2,
+        discordPlayerCompatibility: true
       });
-      stream = playStream.stream;
-      type = playStream.type;
     } catch (err) {
-      // ytdl-core 백업 파이프라인 시도
-      stream = ytdl(url, {
+      console.error('play.stream error, fallback to ytdl:', err.message);
+      const stream = ytdl(url, {
         filter: 'audioonly',
-        highWaterMark: 1 << 25, // 32MB prefetch 버퍼링으로 끊김 방지
+        highWaterMark: 1 << 25,
         quality: 'highestaudio'
       });
+      playStream = { stream, type: StreamType.Arbitrary };
     }
 
-    // 3. FFmpeg 음보정 필터 적용 여부 판별
+    // 3. FFmpeg 음보정 필터 적용
     const filterString = AudioEnhancer.getFilterString(presetKey, speed);
 
     if (filterString) {
-      // FFmpeg 트랜스코딩 트랜스폼 스트림 생성 (입력 스트림 -i - 적용)
-      const args = [
-        '-i', '-',
-        '-analyzeduration', '0',
-        '-loglevel', '0',
-        '-f', 's16le',
-        '-ar', '48000',
-        '-ac', '2',
-        '-af', filterString
-      ];
+      try {
+        const args = [
+          '-analyzeduration', '0',
+          '-loglevel', '0',
+          '-f', 's16le',
+          '-ar', '48000',
+          '-ac', '2',
+          '-af', filterString
+        ];
 
-      const ffmpegStream = new prism.FFmpeg({
-        binary: ffmpegPath,
-        args: args
-      });
+        const ffmpegStream = new prism.FFmpeg({
+          binary: ffmpegPath,
+          args: args
+        });
 
-      const pcmStream = stream.pipe(ffmpegStream);
+        const pcmStream = playStream.stream.pipe(ffmpegStream);
 
-      const resource = createAudioResource(pcmStream, {
-        inputType: StreamType.Raw,
-        inlineVolume: true
-      });
+        const resource = createAudioResource(pcmStream, {
+          inputType: StreamType.Raw,
+          inlineVolume: true
+        });
 
-      return {
-        resource,
-        metadata: { url, title, duration, thumbnail, artist }
-      };
-    } else {
-      // 원본 스트림 direct 리소스 생성
-      const resource = createAudioResource(stream, {
-        inputType: type,
-        inlineVolume: true
-      });
-
-      return {
-        resource,
-        metadata: { url, title, duration, thumbnail, artist }
-      };
+        return {
+          resource,
+          metadata: { url, title, duration, thumbnail, artist }
+        };
+      } catch (e) {
+        console.error('FFmpeg filter pipe error, fallback to direct stream:', e);
+      }
     }
+
+    // Direct Stream
+    const resource = createAudioResource(playStream.stream, {
+      inputType: playStream.type,
+      inlineVolume: true
+    });
+
+    return {
+      resource,
+      metadata: { url, title, duration, thumbnail, artist }
+    };
   }
 }
 
