@@ -55,7 +55,10 @@ class AudioStreamer {
     const { Innertube } = require('youtubei.js');
     let rawStream;
     try {
-      const innertubeOptions = {};
+      const innertubeOptions = {
+        // 모바일 음악 앱 또는 TV 임베디드 클라이언트로 강제 지정하여 봇 방지 확인 완벽 우회
+        client_type: 'ANDROID_MUSIC'
+      };
       if (process.env.YOUTUBE_COOKIE) {
         innertubeOptions.cookie = process.env.YOUTUBE_COOKIE;
       }
