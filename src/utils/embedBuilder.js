@@ -26,15 +26,23 @@ class CustomEmbedBuilder {
       .setThumbnail(botIconUrl || 'https://cdn-icons-png.flaticon.com/512/3844/3844724.png')
       .setFooter({ text: 'HoneyMusic • 최고의 음질과 공연장 울림으로 음악을 즐기세요!' });
 
-    const row = new ActionRowBuilder().addComponents(
+    const row1 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('btn_history').setLabel('🎫 최근').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('btn_chart').setLabel('🟢 인기차트').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId('btn_help').setLabel('📋 명령어 보기').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('btn_lyrics').setLabel('🎵 가사 보기').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('btn_search').setLabel('🔍 음악 검색하기').setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId('btn_search').setLabel('🔍 음악 검색').setStyle(ButtonStyle.Secondary)
     );
 
-    return { embeds: [embed], components: [row] };
+    const row2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('btn_toggle_play').setLabel('⏯️ 일시정지/재개').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('btn_skip').setLabel('⏭️ 스킵').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('btn_stop').setLabel('⏹️ 정지').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('btn_speed_menu').setLabel('⏩ 배속 변경').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('btn_preset_menu').setLabel('🎚️ 음보정').setStyle(ButtonStyle.Success)
+    );
+
+    return { embeds: [embed], components: [row1, row2] };
   }
 
   /**
@@ -149,6 +157,25 @@ class CustomEmbedBuilder {
             description: '보컬과 고음 대역을 맑고 뚜렷하게 보정',
             value: 'clear'
           }
+        ])
+    );
+    return row;
+  }
+  /**
+   * 배속 선택 드롭다운 메뉴
+   */
+  static buildSpeedSelectMenu() {
+    const row = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('select_speed')
+        .setPlaceholder('재생 속도(배속)를 선택해 주세요.')
+        .addOptions([
+          { label: '🐌 0.5x (느리게)', value: '0.5' },
+          { label: '🎵 0.75x (약간 느리게)', value: '0.75' },
+          { label: '▶️ 1.0x (보통 속도 - 기본값)', value: '1.0' },
+          { label: '⚡ 1.25x (약간 빠르게)', value: '1.25' },
+          { label: '🚀 1.5x (빠르게)', value: '1.5' },
+          { label: '🔥 2.0x (2배속)', value: '2.0' }
         ])
     );
     return row;

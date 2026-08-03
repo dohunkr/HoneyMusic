@@ -44,6 +44,22 @@ module.exports = {
 
         queue._updateNowPlayingMessage();
       }
+
+      if (interaction.customId === 'select_speed') {
+        const speedVal = parseFloat(interaction.values[0]);
+        const queue = musicManager.queues.get(interaction.guild.id);
+        if (!queue) {
+          return interaction.reply({ content: '❌ 활성화된 음악 큐가 없습니다.', ephemeral: true });
+        }
+
+        queue.speed = speedVal;
+        await interaction.reply({
+          content: `⏩ **재생 속도가 [ ${speedVal}x ] 로 설정되었습니다. (다음 곡부터 바로 적용됩니다)**`,
+          ephemeral: true
+        });
+
+        queue._updateNowPlayingMessage();
+      }
       return;
     }
 
@@ -114,7 +130,7 @@ module.exports = {
         });
       }
 
-      // F. 음보정 프리셋 변경 드롭다운 표시 [🎚️ 음보정 프리셋 변경]
+      // F. 음보정 프리셋 변경 드롭다운 표시 [🎚️ 음보정]
       if (customId === 'btn_preset_menu') {
         const selectMenuRow = embedBuilder.buildPresetSelectMenu();
         return interaction.reply({
@@ -124,9 +140,36 @@ module.exports = {
         });
       }
 
-      // G. 재생 컨트롤 버튼들 (⏸/▶/⏭/⏹/🔁/🔀/📜)
+      // F-2. 배속 선택 드롭다운 표시 [⏩ 배속 변경]
+      if (customId === 'btn_speed_menu') {
+        const selectMenuRow = embedBuilder.buildSpeedSelectMenu();
+        return interaction.reply({
+          content: '⏩ 원하는 재생 속도(배속)를 선택해 주세요:',
+          components: [selectMenuRow],
+          ephemeral: true
+        });
+      }
+
+      // G. 재생 컨트롤 버튼들 (⏯️/⏸/▶/⏭/⏹/🔁/🔀/📜)
       if (!queue) {
         return interaction.reply({ content: '❌ 현재 실행 중인 음악 큐가 없습니다.', ephemeral: true });
+      }
+
+      if (customId === 'btn_toggle_play') {
+        if (queue.player.state.status === 'paused') {
+          queue.player.unpause();
+          if (queue.lastPauseTime) {
+            queue.pausedDuration += (Date.now() - queue.lastPauseTime);
+            queue.lastPauseTime = 0;
+          }
+          queue._updateNowPlayingMessage();
+          return interaction.reply({ content: '▶ **재생이 재개되었습니다.**', ephemeral: true });
+        } else {
+          queue.player.pause();
+          queue.lastPauseTime = Date.now();
+          queue._updateNowPlayingMessage();
+          return interaction.reply({ content: '⏸ **재생을 일시정지했습니다.**', ephemeral: true });
+        }
       }
 
       if (customId === 'btn_pause') {
