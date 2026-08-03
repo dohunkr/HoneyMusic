@@ -207,14 +207,13 @@ class MusicManager {
         channelId: voiceChannel.id,
         guildId: voiceChannel.guild.id,
         adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-        selfDeaf: true,
-        group: voiceChannel.guild.id
+        selfDeaf: true
       });
 
-      // 즉시 구독
+      // 대기열 플레이어 구독
       queue.connection.subscribe(queue.player);
 
-      // Disconnected 상태 핸들러
+      // Disconnected 이벤트 처리: 네트워크 흔들림 시 자동 재연결
       queue.connection.on(VoiceConnectionStatus.Disconnected, async () => {
         try {
           await Promise.race([
@@ -226,15 +225,13 @@ class MusicManager {
         }
       });
 
-      // 연결 검증 (Signalling -> Ready 대기)
+      // 연결 비동기 승인: ready 대기 중 타임아웃이 나더라도 끊어지지 않았으면 계속 진행
       try {
-        await entersState(queue.connection, VoiceConnectionStatus.Ready, 30_000);
+        await entersState(queue.connection, VoiceConnectionStatus.Ready, 10_000);
       } catch (error) {
-        // 이미 Connecting/Signalling 중이거나 Ready에 진입 중일 경우 즉시 파기하지 않고 재확인
-        if (queue.connection.state.status !== VoiceConnectionStatus.Ready) {
-          console.error(`Voice Connection Error in guild ${voiceChannel.guild.id}:`, error);
-          queue.destroy();
-          throw new Error(`음성 채널 접속 실패: 디스코드 UDP 음성 연결 실패 (${error.message || 'aborted'})`);
+        console.warn(`Voice connection state: ${queue.connection.state.status}. Proceeding...`);
+        if (queue.connection.state.status === VoiceConnectionStatus.Destroyed) {
+          throw new Error('음성 채널 접속에 실패했습니다.');
         }
       }
     }
