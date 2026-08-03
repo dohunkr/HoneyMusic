@@ -44,7 +44,7 @@ class AudioStreamer {
         // play-dl setToken으로 이미 세팅된 환경 쿠키를 basic_info API에 강제 오버라이딩 전달
         const options = {};
         if (process.env.YOUTUBE_COOKIE) {
-          options.htttp_filters = {
+          options.http_filters = {
             headers: {
               'Cookie': process.env.YOUTUBE_COOKIE,
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
