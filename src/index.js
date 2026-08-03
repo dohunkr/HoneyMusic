@@ -27,6 +27,24 @@ const client = new Client({
   ]
 });
 
+// play-dl에 유튜브 쿠키 정보 설정 (봇 차단 완벽 우회)
+const play = require('play-dl');
+if (process.env.YOUTUBE_COOKIE) {
+  try {
+    play.setToken({
+      youtube: {
+        cookie: process.env.YOUTUBE_COOKIE
+      }
+    });
+    console.log('🔑 유튜브 쿠키 토큰 세팅 완료!');
+  } catch (err) {
+    console.error('❌ 유튜브 쿠키 토큰 세팅 실패:', err.message);
+  }
+} else {
+  // 로컬 youtube.data 파일이 있으면 자동 로드됨
+  console.log('ℹ️ YOUTUBE_COOKIE 환경변수가 없습니다. (로컬 youtube.data 감지 대기)');
+}
+
 client.commands = new Collection();
 
 // 1. 명령어 모듈 바인딩
