@@ -63,17 +63,16 @@ class AudioStreamer {
     // 2. 최고 비트레이트 오디오 스트림 추출
     let playStream;
     try {
-      // play-dl이 봇 차단을 우회할 수 있도록 설정
       playStream = await play.stream(url, {
         quality: 2,
         discordPlayerCompatibility: true,
-        htmldata: false // 불필요한 HTML 파싱 차단하여 봇 감지 우회
+        htmldata: false
       });
     } catch (err) {
       console.error('play.stream error, fallback using play-dl direct stream:', err.message);
       try {
-        // play-dl fallback stream 시도
-        const direct = await play.stream_from_info(await play.video_basic_info(url), {
+        const videoInfo = await play.video_basic_info(url);
+        const direct = await play.stream_from_info(videoInfo, {
           quality: 2,
           discordPlayerCompatibility: true
         });
@@ -81,19 +80,25 @@ class AudioStreamer {
       } catch (fallbackErr) {
         // ytdl-core 백업 시도
         try {
+          // play-dl에 세팅된 쿠키가 있다면 ytdl-core 헤더에도 동일 전달
+          const requestHeaders = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          };
+          if (process.env.YOUTUBE_COOKIE) {
+            requestHeaders['Cookie'] = process.env.YOUTUBE_COOKIE;
+          }
+          
           const stream = ytdl(url, {
             filter: 'audioonly',
             highWaterMark: 1 << 25,
             quality: 'highestaudio',
             requestOptions: {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-              }
+              headers: requestHeaders
             }
           });
           playStream = { stream, type: StreamType.Arbitrary };
         } catch (ytdlErr) {
-          throw new Error(`유튜브 차단 감지 (Sign in to confirm you're not a bot). 봇 세션 쿠키 설정이 필요합니다. (${err.message})`);
+          throw new Error(`유튜브 재생 차단 감지 (Sign in to confirm you're not a bot). 봇 쿠키 활성화 후 다시 요청해 주세요. (${err.message})`);
         }
       }
     }
