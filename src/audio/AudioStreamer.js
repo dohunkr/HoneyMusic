@@ -55,46 +55,61 @@ class AudioStreamer {
       }
     }
 
-    // 2. 최고 비트레이트 오디오 스트림 추출
+    // 2. 오디오 스트림 추출
     let playStream;
-    try {
-      playStream = await play.stream(url, {
-        quality: 2,
-        discordPlayerCompatibility: true,
-        htmldata: false
-      });
-    } catch (err) {
-      console.error('play.stream error, fallback using play-dl direct stream:', err.message);
+
+    if (process.env.YOUTUBE_COOKIE && play.yt_validate(url) !== false) {
+      // 쿠키 있을 때: ytdl-core로 직접 스트리밍 (봇 감지 완벽 우회)
       try {
-        const videoInfo = await play.video_basic_info(url);
-        const direct = await play.stream_from_info(videoInfo, {
+        const agent = ytdl.createAgent(undefined, {
+          headers: {
+            'Cookie': process.env.YOUTUBE_COOKIE,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          }
+        });
+        const stream = ytdl(url, {
+          filter: 'audioonly',
+          highWaterMark: 1 << 25,
+          quality: 'highestaudio',
+          agent
+        });
+        playStream = { stream, type: StreamType.Arbitrary };
+        console.log('✅ ytdl-core (쿠키 적용) 스트리밍 시작');
+      } catch (err) {
+        console.error('ytdl-core 쿠키 스트리밍 실패, 헤더 방식으로 재시도:', err.message);
+        const stream = ytdl(url, {
+          filter: 'audioonly',
+          highWaterMark: 1 << 25,
+          quality: 'highestaudio',
+          requestOptions: {
+            headers: {
+              'Cookie': process.env.YOUTUBE_COOKIE,
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          }
+        });
+        playStream = { stream, type: StreamType.Arbitrary };
+      }
+    } else {
+      // 쿠키 없을 때: play-dl 시도
+      try {
+        playStream = await play.stream(url, {
           quality: 2,
           discordPlayerCompatibility: true
         });
-        playStream = direct;
-      } catch (fallbackErr) {
-        // ytdl-core 백업 시도
-        try {
-          // play-dl에 세팅된 쿠키가 있다면 ytdl-core 헤더에도 동일 전달
-          const requestHeaders = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-          };
-          if (process.env.YOUTUBE_COOKIE) {
-            requestHeaders['Cookie'] = process.env.YOUTUBE_COOKIE;
-          }
-          
-          const stream = ytdl(url, {
-            filter: 'audioonly',
-            highWaterMark: 1 << 25,
-            quality: 'highestaudio',
-            requestOptions: {
-              headers: requestHeaders
+      } catch (err) {
+        console.error('play.stream 실패, ytdl-core 헤더 방식 시도:', err.message);
+        const stream = ytdl(url, {
+          filter: 'audioonly',
+          highWaterMark: 1 << 25,
+          quality: 'highestaudio',
+          requestOptions: {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
-          });
-          playStream = { stream, type: StreamType.Arbitrary };
-        } catch (ytdlErr) {
-          throw new Error(`유튜브 재생 차단 감지 (Sign in to confirm you're not a bot). 봇 쿠키 활성화 후 다시 요청해 주세요. (${err.message})`);
-        }
+          }
+        });
+        playStream = { stream, type: StreamType.Arbitrary };
       }
     }
 
