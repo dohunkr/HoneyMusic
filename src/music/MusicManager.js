@@ -66,18 +66,22 @@ class MusicQueue {
   applyFilters() {
     const configData = PRESET_FILTERS[this.presetKey] || PRESET_FILTERS.concert;
     
-    // 1. Equalizer 설정
-    this.player.setEqualizer(configData.equalizer);
+    const filterOptions = {};
 
-    // 2. Tremolo 및 Timescale(배속) 설정
-    const timescale = { speed: this.speed, pitch: 1.0, rate: 1.0 };
+    // 1. Equalizer 설정
+    if (configData.equalizer && configData.equalizer.length > 0) {
+      filterOptions.equalizer = configData.equalizer;
+    }
+
+    // 2. Timescale(배속) 설정
+    filterOptions.timescale = { speed: this.speed, pitch: 1.0, rate: 1.0 };
     
-    const filterOptions = { timescale };
+    // 3. Tremolo(공간감) 설정
     if (configData.tremolo) {
       filterOptions.tremolo = configData.tremolo;
     }
 
-    // Shoukaku에 직접 필터 주입
+    // Shoukaku에 직접 필터 적용
     this.player.shoukaku.setFilters(filterOptions);
   }
 
