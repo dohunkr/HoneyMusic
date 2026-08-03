@@ -211,11 +211,12 @@ class MusicManager {
       });
 
       try {
-        await entersState(queue.connection, VoiceConnectionStatus.Ready, 20_000);
+        await entersState(queue.connection, VoiceConnectionStatus.Ready, 30_000);
         queue.connection.subscribe(queue.player);
       } catch (error) {
+        console.error(`Voice Connection Error in guild ${voiceChannel.guild.id}:`, error);
         queue.destroy();
-        throw new Error('음성 채널 접속에 실패했습니다.');
+        throw new Error(`음성 채널 접속에 실패했습니다. (${error.message || '접속 타임아웃'})`);
       }
     }
     return queue;
