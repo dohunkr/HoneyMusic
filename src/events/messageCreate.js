@@ -47,7 +47,6 @@ module.exports = {
         if (!queue.player.data.get('currentSong')) {
           queue.player.data.set('currentSong', songItem);
           queue.player.play();
-          queue.applyFilters();
           const infoMsg = await message.channel.send(`🎵 **[자동 재생 시작]**: [${metadata.title}](${metadata.url})`);
           setTimeout(() => infoMsg.delete().catch(() => {}), 10000);
         } else {

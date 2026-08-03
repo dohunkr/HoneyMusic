@@ -43,8 +43,6 @@ module.exports = {
       if (!queue.player.data.get('currentSong')) {
         queue.player.data.set('currentSong', songItem);
         queue.player.play();
-        // 음보정 및 속도 필터 설정 즉시 반영
-        queue.applyFilters();
         await interaction.editReply(`🎵 **재생을 시작합니다**: [${metadata.title}](${metadata.url})`);
       } else {
         await interaction.editReply(`📥 **대기열에 추가되었습니다** (${queue.player.queue.length}번째): [${metadata.title}](${metadata.url})`);
