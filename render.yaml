@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: honeymusic
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: CLIENT_ID
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: GENIUS_API_KEY
+        sync: false
+      - key: DEFAULT_VOLUME
+        value: "100"
+      - key: AUTO_LEAVE_COOLDOWN_MINUTES
+        value: "5"
