@@ -85,8 +85,9 @@ class AudioStreamer {
     const filterString = AudioEnhancer.getFilterString(presetKey, speed);
 
     if (filterString) {
-      // FFmpeg 트랜스코딩 트랜스폼 스트림 생성
+      // FFmpeg 트랜스코딩 트랜스폼 스트림 생성 (입력 스트림 -i - 적용)
       const args = [
+        '-i', '-',
         '-analyzeduration', '0',
         '-loglevel', '0',
         '-f', 's16le',
@@ -101,17 +102,9 @@ class AudioStreamer {
       });
 
       const pcmStream = stream.pipe(ffmpegStream);
-      
-      const opusEncoder = new prism.opus.Encoder({
-        rate: 48000,
-        channels: 2,
-        frameSize: 960
-      });
 
-      const opusStream = pcmStream.pipe(opusEncoder);
-
-      const resource = createAudioResource(opusStream, {
-        inputType: StreamType.Opus,
+      const resource = createAudioResource(pcmStream, {
+        inputType: StreamType.Raw,
         inlineVolume: true
       });
 
