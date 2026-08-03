@@ -1,21 +1,21 @@
 /**
  * AudioStreamer.js
- * play-dl 및 @distube/ytdl-core 기반 오디오 스트림 추출 & FFmpeg 처리 파이프라인
+ * @distube/ytdl-core + FFmpeg spawn 기반 오디오 스트림 추출 파이프라인
  */
 
 const play = require('play-dl');
 const ytdl = require('@distube/ytdl-core');
-const prism = require('prism-media');
-// Railway/Docker: 시스템 ffmpeg 우선 (index.js에서 FFMPEG_PATH 설정됨)
-const ffmpegPath = process.env.FFMPEG_PATH || require('ffmpeg-static');
+const { spawn } = require('child_process');
 const AudioEnhancer = require('./AudioEnhancer');
 const { createAudioResource, StreamType } = require('@discordjs/voice');
 
+const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
+
 class AudioStreamer {
   /**
-   * 키워드 또는 URL로 오디오 정보 및 최고 음질 스트림 추출
-   * @param {string} query 
-   * @param {object} options { presetKey: string, speed: number }
+   * URL 또는 검색어로 오디오 리소스 생성
+   * @param {string} query - YouTube URL 또는 검색어
+   * @param {object} options - { presetKey, speed }
    */
   static async createResource(query, options = {}) {
     const { presetKey = 'concert', speed = 1.0 } = options;
@@ -25,7 +25,7 @@ class AudioStreamer {
     let thumbnail = '';
     let artist = '알 수 없음';
 
-    // 1. URL 감지 및 메타데이터 검색
+    // 1. URL이 아닌 경우 YouTube 검색
     const isUrl = query.startsWith('http://') || query.startsWith('https://');
 
     if (!isUrl) {
@@ -38,119 +38,82 @@ class AudioStreamer {
       duration = searchResult[0].durationInSec;
       thumbnail = searchResult[0].thumbnails?.[0]?.url || '';
       artist = searchResult[0].channel?.name || 'YouTube';
-    } else {
-      // URL로 직접 넘어온 경우: 메타데이터 재조회 없이 바로 스트리밍
-      // (messageCreate.js / play.js에서 이미 search()로 메타데이터 확보완료)
-      // SoundCloud URL 예외 처리
-      if (!play.yt_validate(url)) {
-        try {
-          const info = await play.soundcloud(url);
-          title = info.name || title;
-          duration = Math.floor((info.durationInMs || 0) / 1000);
-          thumbnail = info.thumbnail || '';
-          artist = info.user?.name || 'SoundCloud';
-        } catch (e) {
-          title = url;
-        }
+    } else if (!play.yt_validate(url)) {
+      // SoundCloud 등 기타 URL 메타데이터
+      try {
+        const info = await play.soundcloud(url);
+        title = info.name || title;
+        duration = Math.floor((info.durationInMs || 0) / 1000);
+        thumbnail = info.thumbnail || '';
+        artist = info.user?.name || 'SoundCloud';
+      } catch (e) {
+        title = url;
       }
     }
 
-    // 2. 오디오 스트림 추출
-    let playStream;
+    // 2. ytdl-core로 오디오 스트림 추출 (쿠키 적용)
+    const cookieHeader = process.env.YOUTUBE_COOKIE;
+    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-    if (process.env.YOUTUBE_COOKIE && play.yt_validate(url) !== false) {
-      // 쿠키 있을 때: ytdl-core로 직접 스트리밍 (봇 감지 완벽 우회)
-      try {
-        const agent = ytdl.createAgent(undefined, {
-          headers: {
-            'Cookie': process.env.YOUTUBE_COOKIE,
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-          }
-        });
-        const stream = ytdl(url, {
-          filter: 'audioonly',
-          highWaterMark: 1 << 25,
-          quality: 'highestaudio',
-          agent
-        });
-        playStream = { stream, type: StreamType.Arbitrary };
-        console.log('✅ ytdl-core (쿠키 적용) 스트리밍 시작');
-      } catch (err) {
-        console.error('ytdl-core 쿠키 스트리밍 실패, 헤더 방식으로 재시도:', err.message);
-        const stream = ytdl(url, {
-          filter: 'audioonly',
-          highWaterMark: 1 << 25,
-          quality: 'highestaudio',
-          requestOptions: {
-            headers: {
-              'Cookie': process.env.YOUTUBE_COOKIE,
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-          }
-        });
-        playStream = { stream, type: StreamType.Arbitrary };
-      }
-    } else {
-      // 쿠키 없을 때: play-dl 시도
-      try {
-        playStream = await play.stream(url, {
-          quality: 2,
-          discordPlayerCompatibility: true
-        });
-      } catch (err) {
-        console.error('play.stream 실패, ytdl-core 헤더 방식 시도:', err.message);
-        const stream = ytdl(url, {
-          filter: 'audioonly',
-          highWaterMark: 1 << 25,
-          quality: 'highestaudio',
-          requestOptions: {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-          }
-        });
-        playStream = { stream, type: StreamType.Arbitrary };
-      }
-    }
+    const reqHeaders = { 'User-Agent': userAgent };
+    if (cookieHeader) reqHeaders['Cookie'] = cookieHeader;
 
-    // 3. FFmpeg 음보정 필터 적용
+    const rawStream = ytdl(url, {
+      filter: 'audioonly',
+      highWaterMark: 1 << 25,
+      quality: 'highestaudio',
+      requestOptions: { headers: reqHeaders }
+    });
+
+    // 3. FFmpeg spawn으로 트랜스코딩 + 음보정 필터 적용
+    // pipe:0 (stdin) → FFmpeg → pipe:1 (stdout) → discord
     const filterString = AudioEnhancer.getFilterString(presetKey, speed);
 
+    const ffmpegArgs = [
+      '-i', 'pipe:0',        // stdin에서 입력 받기
+      '-analyzeduration', '0',
+      '-loglevel', 'error',
+      '-vn',                  // 비디오 스트림 제거
+      '-ar', '48000',         // 샘플레이트 48kHz (Discord 요구사항)
+      '-ac', '2',             // 스테레오
+      '-f', 's16le'           // PCM 16비트 little endian 출력
+    ];
+
     if (filterString) {
-      try {
-        const args = [
-          '-analyzeduration', '0',
-          '-loglevel', '0',
-          '-f', 's16le',
-          '-ar', '48000',
-          '-ac', '2',
-          '-af', filterString
-        ];
-
-        const ffmpegStream = new prism.FFmpeg({
-          binary: ffmpegPath,
-          args: args
-        });
-
-        const pcmStream = playStream.stream.pipe(ffmpegStream);
-
-        const resource = createAudioResource(pcmStream, {
-          inputType: StreamType.Raw,
-          inlineVolume: true
-        });
-
-        return {
-          resource,
-          metadata: { url, title, duration, thumbnail, artist }
-        };
-      } catch (e) {
-        console.error('FFmpeg filter pipe error, fallback to direct stream:', e);
-      }
+      ffmpegArgs.push('-af', filterString);
     }
 
-    // Direct Stream
-    const resource = createAudioResource(playStream.stream, {
-      inputType: playStream.type,
+    ffmpegArgs.push('pipe:1'); // stdout으로 출력
+
+    const ffmpegProcess = spawn(ffmpegPath, ffmpegArgs, {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    // ytdl 스트림 → FFmpeg stdin
+    rawStream.pipe(ffmpegProcess.stdin);
+
+    // 에러 처리
+    rawStream.on('error', err => {
+      console.error('[ytdl] 스트림 에러:', err.message);
+      if (!ffmpegProcess.stdin.destroyed) ffmpegProcess.stdin.destroy();
+    });
+
+    ffmpegProcess.stdin.on('error', () => {}); // EPIPE 등 파이프 에러 무시
+
+    ffmpegProcess.stderr.on('data', data => {
+      const msg = data.toString().trim();
+      if (msg && !msg.includes('size=') && !msg.includes('time=') && !msg.includes('frame=')) {
+        console.error('[FFmpeg]', msg);
+      }
+    });
+
+    ffmpegProcess.on('error', err => {
+      console.error('[FFmpeg] 프로세스 에러:', err.message);
+    });
+
+    // FFmpeg stdout (PCM) → Discord audio resource
+    const resource = createAudioResource(ffmpegProcess.stdout, {
+      inputType: StreamType.Raw,
       inlineVolume: true
     });
 
