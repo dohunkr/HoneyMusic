@@ -39,25 +39,10 @@ class AudioStreamer {
       thumbnail = searchResult[0].thumbnails?.[0]?.url || '';
       artist = searchResult[0].channel?.name || 'YouTube';
     } else {
-      // YouTube / SoundCloud URL 정보 가져오기
-      if (play.yt_validate(url) === 'video') {
-        // play-dl setToken으로 이미 세팅된 환경 쿠키를 basic_info API에 강제 오버라이딩 전달
-        const options = {};
-        if (process.env.YOUTUBE_COOKIE) {
-          options.http_filters = {
-            headers: {
-              'Cookie': process.env.YOUTUBE_COOKIE,
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-          };
-        }
-        const info = await play.video_basic_info(url, options);
-        title = info.video_details.title;
-        duration = info.video_details.durationInSec;
-        thumbnail = info.video_details.thumbnails?.[0]?.url || '';
-        artist = info.video_details.channel?.name || 'YouTube';
-      } else {
-        // 기타 지원 URL (SoundCloud 등)
+      // URL로 직접 넘어온 경우: 메타데이터 재조회 없이 바로 스트리밍
+      // (messageCreate.js / play.js에서 이미 search()로 메타데이터 확보완료)
+      // SoundCloud URL 예외 처리
+      if (!play.yt_validate(url)) {
         try {
           const info = await play.soundcloud(url);
           title = info.name || title;
