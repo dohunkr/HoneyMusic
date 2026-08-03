@@ -38,13 +38,14 @@ module.exports = {
 
       // 플레이어 큐에 트랙 삽입
       queue.player.queue.add(track);
-      
-      // 메타데이터 바인딩
-      if (!queue.player.data.get('currentSong')) {
+
+      if (!queue.player.playing && !queue.player.paused) {
+        // 아이들 상태: 지금 바로 재생
         queue.player.data.set('currentSong', songItem);
-        queue.player.play();
+        await queue.player.play();
         await interaction.editReply(`🎵 **재생을 시작합니다**: [${metadata.title}](${metadata.url})`);
       } else {
+        // 이미 재생 중: 대기열에 추가
         await interaction.editReply(`📥 **대기열에 추가되었습니다** (${queue.player.queue.length}번째): [${metadata.title}](${metadata.url})`);
       }
     } catch (err) {

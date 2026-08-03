@@ -97,9 +97,9 @@ module.exports = {
 
           targetQueue.player.queue.add(track);
 
-          if (!targetQueue.player.data.get('currentSong')) {
+          if (!targetQueue.player.playing && !targetQueue.player.paused) {
             targetQueue.player.data.set('currentSong', songItem);
-            targetQueue.player.play();
+            await targetQueue.player.play();
             await interaction.editReply(`🟢 **[인기차트 최신영상] 재생을 시작합니다**: [${metadata.title}](${metadata.url})`);
           } else {
             await interaction.editReply(`🟢 **[인기차트 최신영상] 대기열에 추가되었습니다** (${targetQueue.player.queue.length}번째): [${metadata.title}](${metadata.url})`);

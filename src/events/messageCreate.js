@@ -44,9 +44,10 @@ module.exports = {
         // 플레이어 큐에 트랙 삽입
         queue.player.queue.add(track);
 
-        if (!queue.player.data.get('currentSong')) {
+        if (!queue.player.playing && !queue.player.paused) {
+          // 아이들 상태: 지금 바로 재생
           queue.player.data.set('currentSong', songItem);
-          queue.player.play();
+          await queue.player.play();
           const infoMsg = await message.channel.send(`🎵 **[자동 재생 시작]**: [${metadata.title}](${metadata.url})`);
           setTimeout(() => infoMsg.delete().catch(() => {}), 10000);
         } else {
