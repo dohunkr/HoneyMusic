@@ -151,7 +151,11 @@ class MusicQueue {
     this.leaveTimer = setTimeout(() => {
       this.destroy();
       if (this.textChannel) {
-        this.textChannel.send('💤 **오랫동안 음악 요청이 없어 음성 채널에서 퇴장했습니다.**').catch(() => {});
+        this.textChannel.send('💤 **오랫동안 음악 요청이 없어 음성 채널에서 퇴장했습니다.**')
+          .then(msg => {
+            setTimeout(() => msg.delete().catch(() => {}), 10000); // 10초 뒤 삭제
+          })
+          .catch(() => {});
       }
     }, timeoutMs);
   }

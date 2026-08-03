@@ -25,23 +25,35 @@ module.exports = {
 
       try {
         const queue = await musicManager.joinChannel(userVoiceChannel, message.channel);
+        
+        // 검색 진행
+        const searchRes = await play.search(userQuery, { limit: 1 });
+        if (!searchRes || searchRes.length === 0) {
+          const failMsg = await message.channel.send(`❌ **검색 결과가 없습니다**: ${userQuery}`);
+          setTimeout(() => failMsg.delete().catch(() => {}), 5000);
+          return;
+        }
+
+        const video = searchRes[0];
         const songItem = {
-          query: userQuery,
-          title: userQuery,
-          url: userQuery,
+          query: video.url,
+          title: video.title,
+          url: video.url,
           requestedBy: message.author.id,
-          duration: 0
+          duration: video.durationInSec,
+          thumbnail: video.thumbnails?.[0]?.url || '',
+          artist: video.channel?.name || 'YouTube'
         };
 
         queue.songs.push(songItem);
 
         if (queue.player.state.status !== 'playing' && !queue.currentSong) {
           queue.playNext();
-          const infoMsg = await message.channel.send(`🎵 **[자동 재생 시작]**: ${userQuery}`);
-          setTimeout(() => infoMsg.delete().catch(() => {}), 5000);
+          const infoMsg = await message.channel.send(`🎵 **[자동 재생 시작]**: [${video.title}](${video.url})`);
+          setTimeout(() => infoMsg.delete().catch(() => {}), 10000); // 10초 대기
         } else {
-          const infoMsg = await message.channel.send(`📥 **[대기열 추가]** (${queue.songs.length}번째): ${userQuery}`);
-          setTimeout(() => infoMsg.delete().catch(() => {}), 5000);
+          const infoMsg = await message.channel.send(`📥 **[대기열 추가]** (${queue.songs.length}번째): [${video.title}](${video.url})`);
+          setTimeout(() => infoMsg.delete().catch(() => {}), 10000); // 10초 대기
         }
       } catch (err) {
         const errorMsg = await message.channel.send(`❌ 재생 요청 오류: ${err.message}`);

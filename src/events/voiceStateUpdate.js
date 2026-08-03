@@ -18,7 +18,11 @@ module.exports = {
         // 음성 채널에 무인 상태 감지 시 즉시 또는 타이머 후 자동 퇴장
         queue.destroy();
         if (queue.textChannel) {
-          queue.textChannel.send('🚪 **음성 채널에 아무도 없어 자동으로 퇴장했습니다.**').catch(() => {});
+          queue.textChannel.send('🚪 **음성 채널에 아무도 없어 자동으로 퇴장했습니다.**')
+            .then(msg => {
+              setTimeout(() => msg.delete().catch(() => {}), 10000); // 10초 뒤 삭제
+            })
+            .catch(() => {});
         }
       }
     }

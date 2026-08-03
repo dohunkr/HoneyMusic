@@ -22,10 +22,30 @@ module.exports = {
 
     try {
       const queue = await musicManager.joinChannel(voiceChannel, interaction.channel);
+      
+      let videoUrl = query;
+      let videoTitle = query;
+      
+      const isUrl = query.startsWith('http://') || query.startsWith('https://');
+      if (!isUrl) {
+        const searchResult = await play.search(query, { limit: 1 });
+        if (!searchResult || searchResult.length === 0) {
+          return interaction.editReply(`❌ 검색 결과가 없습니다: ${query}`);
+        }
+        videoUrl = searchResult[0].url;
+        videoTitle = searchResult[0].title;
+      } else {
+        if (play.yt_validate(query) === 'video') {
+          const info = await play.video_info(query);
+          videoUrl = info.video_details.url;
+          videoTitle = info.video_details.title;
+        }
+      }
+
       const songItem = {
-        query,
-        title: query,
-        url: query,
+        query: videoUrl,
+        title: videoTitle,
+        url: videoUrl,
         requestedBy: interaction.user.id,
         duration: 0
       };
@@ -34,9 +54,9 @@ module.exports = {
 
       if (queue.player.state.status !== 'playing' && !queue.currentSong) {
         queue.playNext();
-        await interaction.editReply(`🎵 **재생을 시작합니다**: ${query}`);
+        await interaction.editReply(`🎵 **재생을 시작합니다**: [${videoTitle}](${videoUrl})`);
       } else {
-        await interaction.editReply(`📥 **대기열에 추가되었습니다** (${queue.songs.length}번째): ${query}`);
+        await interaction.editReply(`📥 **대기열에 추가되었습니다** (${queue.songs.length}번째): [${videoTitle}](${videoUrl})`);
       }
     } catch (err) {
       await interaction.editReply(`❌ **재생 요청 실패**: ${err.message}`);
