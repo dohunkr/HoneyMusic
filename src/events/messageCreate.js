@@ -1,5 +1,6 @@
 const MusicChannelSetup = require('../music/MusicChannelSetup');
 const musicManager = require('../music/MusicManager');
+const play = require('play-dl');
 
 module.exports = {
   name: 'messageCreate',
