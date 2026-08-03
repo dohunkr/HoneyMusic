@@ -37,7 +37,7 @@ module.exports = {
         videoTitle = searchResult[0].title;
       } else {
         if (play.yt_validate(query) === 'video') {
-          const info = await play.video_info(query);
+          const info = await play.video_basic_info(query);
           videoUrl = info.video_details.url;
           videoTitle = info.video_details.title;
         }
