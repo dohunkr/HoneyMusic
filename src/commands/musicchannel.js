@@ -1,10 +1,11 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const MusicChannelSetup = require('../music/MusicChannelSetup');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('음악채널')
-    .setDescription('전용 음악 채널 (🎵ㆍ음악채널)을 자동 생성하고 UI를 배치합니다.'),
+    .setDescription('전용 음악 채널 (🎵ㆍ음악채널)을 자동 생성하고 UI를 배치합니다.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
   async execute(interaction) {
     if (!interaction.member.permissions.has('ManageChannels')) {
