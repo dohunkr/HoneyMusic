@@ -210,13 +210,25 @@ class MusicManager {
         selfDeaf: true
       });
 
+      // 연결 끊김(Disconnected) 이벤트 핸들러: 재연결 시도
+      queue.connection.on(VoiceConnectionStatus.Disconnected, async () => {
+        try {
+          await Promise.race([
+            entersState(queue.connection, VoiceConnectionStatus.Signalling, 5_000),
+            entersState(queue.connection, VoiceConnectionStatus.Connecting, 5_000),
+          ]);
+        } catch (e) {
+          queue.destroy();
+        }
+      });
+
       try {
-        await entersState(queue.connection, VoiceConnectionStatus.Ready, 30_000);
+        await entersState(queue.connection, VoiceConnectionStatus.Ready, 15_000);
         queue.connection.subscribe(queue.player);
       } catch (error) {
         console.error(`Voice Connection Error in guild ${voiceChannel.guild.id}:`, error);
         queue.destroy();
-        throw new Error(`음성 채널 접속에 실패했습니다. (${error.message || '접속 타임아웃'})`);
+        throw new Error(`음성 채널 접속 실패: 디스코드 서버 연결 신호 타임아웃 (${error.message || 'aborted'})`);
       }
     }
     return queue;
