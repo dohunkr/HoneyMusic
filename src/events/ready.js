@@ -20,6 +20,7 @@ module.exports = {
       const musicManager = require('../music/MusicManager');
       const queue = musicManager.getQueue(player.guildId);
       if (queue) {
+        queue._cancelLeaveTimer();
         const songItem = {
           query: track.uri,
           title: track.title,
@@ -32,6 +33,34 @@ module.exports = {
         };
         player.data.set('currentSong', songItem);
         queue._updateNowPlayingMessage();
+      }
+    });
+
+    client.manager.on('playerEnd', (player) => {
+      const musicManager = require('../music/MusicManager');
+      const queue = musicManager.getQueue(player.guildId);
+      if (queue) {
+        if (player.queue.length === 0) {
+          queue._startLeaveTimer();
+        }
+        queue._updateNowPlayingMessage();
+      }
+    });
+
+    client.manager.on('playerClosed', (player) => {
+      const musicManager = require('../music/MusicManager');
+      const queue = musicManager.getQueue(player.guildId);
+      if (queue) {
+        queue.destroy();
+      }
+    });
+
+    client.manager.on('playerException', (player, err) => {
+      console.error(`[Lavalink Error] Guild ${player.guildId}:`, err);
+      const musicManager = require('../music/MusicManager');
+      const queue = musicManager.getQueue(player.guildId);
+      if (queue && queue.textChannel) {
+        queue.textChannel.send(`⚠️ **재생 중 오류 발생**: ${err.message || 'Lavalink decode error'}`).catch(() => {});
       }
     });
 

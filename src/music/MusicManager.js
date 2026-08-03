@@ -58,34 +58,6 @@ class MusicQueue {
     this.nowPlayingMessage = null;
 
     this.leaveTimer = null;
-
-    this._setupPlayerEvents();
-  }
-
-  _setupPlayerEvents() {
-    this.player.on('start', () => {
-      this._cancelLeaveTimer();
-      this._updateNowPlayingMessage();
-    });
-
-    this.player.on('end', () => {
-      // 대기열이 비었는지 확인 후 퇴장 타이머 가동
-      if (this.player.queue.length === 0) {
-        this._startLeaveTimer();
-      }
-      this._updateNowPlayingMessage();
-    });
-
-    this.player.on('closed', () => {
-      this.destroy();
-    });
-
-    this.player.on('exception', (err) => {
-      console.error(`[Lavalink Playback Error] Guild ${this.guildId}:`, err);
-      if (this.textChannel) {
-        this.textChannel.send(`⚠️ **재생 중 오류 발생**: ${err.message || 'Lavalink decode error'}`).catch(() => {});
-      }
-    });
   }
 
   /**
