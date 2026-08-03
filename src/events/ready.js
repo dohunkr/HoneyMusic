@@ -32,6 +32,7 @@ module.exports = {
           trackData: track
         };
         player.data.set('currentSong', songItem);
+        queue.applyFilters(); // 음원 세션 준비가 완료된 시작점에 실시간 필터 안전 적용
         queue._updateNowPlayingMessage();
       }
     });

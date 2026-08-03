@@ -63,26 +63,30 @@ class MusicQueue {
   /**
    * 음보정 필터 적용
    */
-  applyFilters() {
-    const configData = PRESET_FILTERS[this.presetKey] || PRESET_FILTERS.concert;
-    
-    const filterOptions = {};
+  async applyFilters() {
+    if (!this.player || !this.player.shoukaku) return;
+    try {
+      const configData = PRESET_FILTERS[this.presetKey] || PRESET_FILTERS.concert;
+      const filterOptions = {};
 
-    // 1. Equalizer 설정
-    if (configData.equalizer && configData.equalizer.length > 0) {
-      filterOptions.equalizer = configData.equalizer;
+      // 1. Equalizer 설정
+      if (configData.equalizer && configData.equalizer.length > 0) {
+        filterOptions.equalizer = configData.equalizer;
+      }
+
+      // 2. Timescale(배속) 설정
+      filterOptions.timescale = { speed: this.speed, pitch: 1.0, rate: 1.0 };
+      
+      // 3. Tremolo(공간감) 설정
+      if (configData.tremolo) {
+        filterOptions.tremolo = configData.tremolo;
+      }
+
+      // Shoukaku에 직접 필터 적용
+      await this.player.shoukaku.setFilters(filterOptions);
+    } catch (err) {
+      console.warn(`[applyFilters] 필터 설정 오류 무시 (Lavalink 세션 로딩 대기):`, err.message);
     }
-
-    // 2. Timescale(배속) 설정
-    filterOptions.timescale = { speed: this.speed, pitch: 1.0, rate: 1.0 };
-    
-    // 3. Tremolo(공간감) 설정
-    if (configData.tremolo) {
-      filterOptions.tremolo = configData.tremolo;
-    }
-
-    // Shoukaku에 직접 필터 적용
-    this.player.shoukaku.setFilters(filterOptions);
   }
 
   async _updateNowPlayingMessage() {
