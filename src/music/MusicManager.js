@@ -138,8 +138,16 @@ class MusicQueue {
 
   destroy() {
     this._cancelLeaveTimer();
-    if (this.player) {
-      this.player.destroy();
+    this.songs = [];
+    const playerInstance = this.player;
+    this.player = null; // 메모리 참조 조기 해제하여 후속 갱신 차단
+    
+    if (playerInstance) {
+      try {
+        playerInstance.destroy();
+      } catch (err) {
+        console.warn('[MusicQueue] playerInstance destroy error:', err.message);
+      }
     }
     if (this.nowPlayingMessage) {
       this.nowPlayingMessage.delete().catch(() => {});

@@ -51,13 +51,18 @@ module.exports = {
     client.manager.on('playerClosed', (player) => {
       const musicManager = require('../music/MusicManager');
       const queue = musicManager.getQueue(player.guildId);
-      if (queue) {
+      if (queue && queue.player) {
+        // 이미 닫힌 채널의 player 참조를 null로 설정하여 중복 destroy() 400 에러 차단
+        queue.player = null; 
         queue.destroy();
       }
     });
 
     client.manager.on('playerException', (player, err) => {
       console.error(`[Lavalink Error] Guild ${player.guildId}:`, err);
+      // 400 Bad Request 등 단순 API 예외는 크래시 나지 않게 차단
+      if (err.message && err.message.includes('400')) return;
+      
       const musicManager = require('../music/MusicManager');
       const queue = musicManager.getQueue(player.guildId);
       if (queue && queue.textChannel) {
