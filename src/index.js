@@ -4,6 +4,9 @@ const http = require('http');
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const config = require('./config');
 
+// ytdl-core 업데이트 체크 경고 제거
+process.env.YTDL_NO_UPDATE = 'true';
+
 // Railway/Docker 환경: 시스템 FFmpeg 사용 (Dockerfile에서 apt-get으로 설치)
 // ffmpeg-static은 fallback으로만 사용
 if (!process.env.FFMPEG_PATH) {
@@ -31,6 +34,7 @@ const client = new Client({
 const play = require('play-dl');
 if (process.env.YOUTUBE_COOKIE) {
   try {
+    // 세션 정보 주입
     play.setToken({
       youtube: {
         cookie: process.env.YOUTUBE_COOKIE
@@ -41,8 +45,7 @@ if (process.env.YOUTUBE_COOKIE) {
     console.error('❌ 유튜브 쿠키 토큰 세팅 실패:', err.message);
   }
 } else {
-  // 로컬 youtube.data 파일이 있으면 자동 로드됨
-  console.log('ℹ️ YOUTUBE_COOKIE 환경변수가 없습니다. (로컬 youtube.data 감지 대기)');
+  console.log('ℹ️ YOUTUBE_COOKIE 환경변수가 없습니다.');
 }
 
 client.commands = new Collection();

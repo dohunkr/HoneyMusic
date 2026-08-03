@@ -52,12 +52,13 @@ class AudioStreamer {
     }
 
     // 2. youtubei.js(Innertube)로 오디오 스트림 추출 (쿠키 적용)
-    const { Innertube } = require('youtubei.js');
+    const { Innertube, Universal } = require('youtubei.js');
     let rawStream;
     try {
       const innertubeOptions = {
-        // ANDROID_MUSIC은 현재 v1/player 400 Bad Request 오류를 유발할 수 있으므로 기본 WEB/WEB_EMBEDDED 구조를 사용하여 쿠키 정합성을 높입니다.
-        client_type: 'WEB'
+        // WEB 클라이언트 타입을 지정하고, 필요에 따라 임베디드 재생이 가능하도록 설정합니다.
+        client_type: 'WEB',
+        retrieve_player: true
       };
       if (process.env.YOUTUBE_COOKIE) {
         innertubeOptions.cookie = process.env.YOUTUBE_COOKIE;
