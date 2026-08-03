@@ -15,19 +15,31 @@ const client = new Client({
   ]
 });
 
-// Lavalink 노드 구성 (2026.08 기준 활성 노드)
+// Lavalink 노드 구성 (4중화 - serenetia.com 429 Rate Limit 차단으로 대체)
 const Nodes = [
   {
-    name: 'Node-1 (Serenetia v4 SSL)',
-    url: 'lavalinkv4.serenetia.com:443',
-    auth: 'https://dsc.gg/ajidevserver',
+    name: 'Node-1 (Jirayu SSL)',
+    url: 'lavalink.jirayu.net:443',
+    auth: 'youshallnotpass',
     secure: true
   },
   {
-    name: 'Node-2 (Serenetia v4 non-SSL)',
-    url: 'lavalinkv4.serenetia.com:80',
-    auth: 'https://dsc.gg/ajidevserver',
-    secure: false
+    name: 'Node-2 (AneFaiz SSL)',
+    url: 'lava-v4.millohost.my.id:443',
+    auth: 'https://discord.gg/mjS5J2K3ep',
+    secure: true
+  },
+  {
+    name: 'Node-3 (TriniumHost SSL)',
+    url: 'lavalink-v4.triniumhost.com:443',
+    auth: 'free',
+    secure: true
+  },
+  {
+    name: 'Node-4 (Serenetia Backup SSL)',
+    url: 'lavalinkv4.serenetia.com:443',
+    auth: 'https://seretia.link/discord',
+    secure: true
   }
 ];
 
