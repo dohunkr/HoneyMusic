@@ -15,19 +15,19 @@ const client = new Client({
   ]
 });
 
-// Lavalink 노드 이중화 구성
+// Lavalink 노드 구성 (2026.08 기준 활성 노드)
 const Nodes = [
   {
-    name: 'Node-1 (Asia/Public)',
-    url: 'lavalink.ajie.my.id:80',
-    auth: 'ajiedev',
-    secure: false
+    name: 'Node-1 (Serenetia v4 SSL)',
+    url: 'lavalinkv4.serenetia.com:443',
+    auth: 'https://dsc.gg/ajidevserver',
+    secure: true
   },
   {
-    name: 'Node-2 (Rocks/Public)',
-    url: 'ssl.lavalink.rocks:443',
-    auth: 'horizongirl',
-    secure: true
+    name: 'Node-2 (Serenetia v4 non-SSL)',
+    url: 'lavalinkv4.serenetia.com:80',
+    auth: 'https://dsc.gg/ajidevserver',
+    secure: false
   }
 ];
 
