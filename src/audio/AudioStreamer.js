@@ -41,7 +41,7 @@ class AudioStreamer {
     } else {
       // YouTube / SoundCloud URL 정보 가져오기
       if (play.yt_validate(url) === 'video') {
-        const info = await play.video_info(url);
+        const info = await play.video_basic_info(url);
         title = info.video_details.title;
         duration = info.video_details.durationInSec;
         thumbnail = info.video_details.thumbnails?.[0]?.url || '';
