@@ -34,7 +34,11 @@ const Nodes = [
 // Kazagumo 인스턴스 생성 및 client 바인딩
 client.manager = new Kazagumo({
   plugins: [],
-  defaultSearchEngine: 'youtube'
+  defaultSearchEngine: 'youtube',
+  send: (guildId, payload) => {
+    const guild = client.guilds.cache.get(guildId);
+    if (guild) guild.shard.send(payload);
+  }
 }, new Connectors.DiscordJS(client), Nodes);
 
 // Lavalink 이벤트 핸들링
