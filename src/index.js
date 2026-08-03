@@ -2,24 +2,9 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const { Shoukaku, Connectors } = require('shoukaku');
+const { Kazagumo } = require('kazagumo');
 const config = require('./config');
-
-// ytdl-core 업데이트 체크 경고 제거
-process.env.YTDL_NO_UPDATE = 'true';
-
-// Railway/Docker 환경: 시스템 FFmpeg 사용 (Dockerfile에서 apt-get으로 설치)
-// ffmpeg-static은 fallback으로만 사용
-if (!process.env.FFMPEG_PATH) {
-  try {
-    // 시스템 ffmpeg 우선 사용
-    const { execSync } = require('child_process');
-    execSync('ffmpeg -version', { stdio: 'ignore' });
-    process.env.FFMPEG_PATH = 'ffmpeg';
-  } catch {
-    // 시스템 ffmpeg 없으면 ffmpeg-static 사용
-    process.env.FFMPEG_PATH = require('ffmpeg-static');
-  }
-}
 
 const client = new Client({
   intents: [
@@ -30,23 +15,33 @@ const client = new Client({
   ]
 });
 
-// play-dl에 유튜브 쿠키 정보 설정 (봇 차단 완벽 우회)
-const play = require('play-dl');
-if (process.env.YOUTUBE_COOKIE) {
-  try {
-    // 세션 정보 주입
-    play.setToken({
-      youtube: {
-        cookie: process.env.YOUTUBE_COOKIE
-      }
-    });
-    console.log('🔑 유튜브 쿠키 토큰 세팅 완료!');
-  } catch (err) {
-    console.error('❌ 유튜브 쿠키 토큰 세팅 실패:', err.message);
+// Lavalink 노드 이중화 구성
+const Nodes = [
+  {
+    name: 'Node-1 (Asia/Public)',
+    url: 'lavalink.ajie.my.id:80',
+    auth: 'ajiedev',
+    secure: false
+  },
+  {
+    name: 'Node-2 (Rocks/Public)',
+    url: 'ssl.lavalink.rocks:443',
+    auth: 'horizongirl',
+    secure: true
   }
-} else {
-  console.log('ℹ️ YOUTUBE_COOKIE 환경변수가 없습니다.');
-}
+];
+
+// Kazagumo 인스턴스 생성 및 client 바인딩
+client.manager = new Kazagumo({
+  plugins: [],
+  defaultSearchEngine: 'youtube'
+}, new Connectors.DiscordJS(client), Nodes);
+
+// Lavalink 이벤트 핸들링
+client.manager.shoukaku.on('ready', (name) => console.log(`[Lavalink] 노드 연결됨: ${name}`));
+client.manager.shoukaku.on('error', (name, error) => console.error(`[Lavalink] 노드 ${name} 에러:`, error));
+client.manager.shoukaku.on('close', (name, code, reason) => console.warn(`[Lavalink] 노드 ${name} 연결 닫힘 (코드: ${code}, 사유: ${reason})`));
+client.manager.shoukaku.on('disconnect', (name, players, moved) => console.warn(`[Lavalink] 노드 ${name} 연결 끊김`));
 
 client.commands = new Collection();
 
@@ -91,7 +86,6 @@ if (!config.token) {
 client.login(config.token);
 
 // Railway 헬스체크용 경량 HTTP 서버
-// Railway는 포트에 HTTP 응답이 없으면 컨테이너를 비정상으로 판단함
 const PORT = process.env.PORT || 3000;
 http.createServer((req, res) => {
   if (req.url === '/health') {

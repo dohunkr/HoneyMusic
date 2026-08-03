@@ -2,8 +2,8 @@ const musicManager = require('../music/MusicManager');
 const MusicChannelSetup = require('../music/MusicChannelSetup');
 const ChartChannelFetcher = require('../music/ChartChannelFetcher');
 const embedBuilder = require('../utils/embedBuilder');
-const LyricsFetcher = require('../utils/lyricsFetcher');
 const AudioEnhancer = require('../audio/AudioEnhancer');
+const AudioStreamer = require('../audio/AudioStreamer');
 
 module.exports = {
   name: 'interactionCreate',
@@ -31,12 +31,13 @@ module.exports = {
     if (interaction.isStringSelectMenu()) {
       if (interaction.customId === 'select_preset') {
         const selectedPreset = interaction.values[0];
-        const queue = musicManager.queues.get(interaction.guild.id);
+        const queue = musicManager.getQueue(interaction.guild.id);
         if (!queue) {
           return interaction.reply({ content: '❌ 활성화된 음악 큐가 없습니다.', ephemeral: true });
         }
 
         queue.presetKey = selectedPreset;
+        queue.applyFilters(); // 필터 적용
         await interaction.reply({
           content: `🎚️ **음보정 프리셋이 [ ${AudioEnhancer.getPresetName(selectedPreset)} ](으)로 변경되었습니다.**`,
           ephemeral: true
@@ -47,14 +48,15 @@ module.exports = {
 
       if (interaction.customId === 'select_speed') {
         const speedVal = parseFloat(interaction.values[0]);
-        const queue = musicManager.queues.get(interaction.guild.id);
+        const queue = musicManager.getQueue(interaction.guild.id);
         if (!queue) {
           return interaction.reply({ content: '❌ 활성화된 음악 큐가 없습니다.', ephemeral: true });
         }
 
         queue.speed = speedVal;
+        queue.applyFilters(); // 필터 적용
         await interaction.reply({
-          content: `⏩ **재생 속도가 [ ${speedVal}x ] 로 설정되었습니다. (다음 곡부터 바로 적용됩니다)**`,
+          content: `⏩ **재생 속도가 [ ${speedVal}x ] 로 설정되었습니다. (음보정 필터가 갱신되었습니다)**`,
           ephemeral: true
         });
 
@@ -67,7 +69,7 @@ module.exports = {
     if (interaction.isButton()) {
       const customId = interaction.customId;
       const voiceChannel = interaction.member?.voice?.channel;
-      const queue = musicManager.queues.get(interaction.guild.id);
+      const queue = musicManager.getQueue(interaction.guild.id);
 
       // A. 인기차트 버튼 [🟢 인기차트]
       if (customId === 'btn_chart') {
@@ -77,26 +79,31 @@ module.exports = {
 
         await interaction.deferReply({ ephemeral: true });
         try {
-          // 실시간 최신 영상 조회
           const latestVideo = await ChartChannelFetcher.getLatestVideo();
           const targetQueue = await musicManager.joinChannel(voiceChannel, interaction.channel);
 
+          const { track, metadata } = await AudioStreamer.searchTracks(interaction.client.manager, latestVideo.url, interaction.user.id);
+
           const songItem = {
-            query: latestVideo.url,
-            title: latestVideo.title,
-            url: latestVideo.url,
-            thumbnail: latestVideo.thumbnail,
+            query: metadata.url,
+            title: metadata.title,
+            url: metadata.url,
+            thumbnail: metadata.thumbnail,
             requestedBy: interaction.user.id,
-            duration: 0
+            duration: metadata.duration,
+            artist: metadata.artist,
+            trackData: track
           };
 
-          targetQueue.songs.push(songItem);
+          targetQueue.player.queue.add(track);
 
-          if (targetQueue.player.state.status !== 'playing' && !targetQueue.currentSong) {
-            targetQueue.playNext();
-            await interaction.editReply(`🟢 **[인기차트 최신영상] 재생을 시작합니다**: [${latestVideo.title}](${latestVideo.url})`);
+          if (!targetQueue.player.data.get('currentSong')) {
+            targetQueue.player.data.set('currentSong', songItem);
+            targetQueue.player.play();
+            targetQueue.applyFilters();
+            await interaction.editReply(`🟢 **[인기차트 최신영상] 재생을 시작합니다**: [${metadata.title}](${metadata.url})`);
           } else {
-            await interaction.editReply(`🟢 **[인기차트 최신영상] 대기열에 추가되었습니다**: [${latestVideo.title}](${latestVideo.url})`);
+            await interaction.editReply(`🟢 **[인기차트 최신영상] 대기열에 추가되었습니다** (${targetQueue.player.queue.length}번째): [${metadata.title}](${metadata.url})`);
           }
         } catch (err) {
           await interaction.editReply(`❌ **인기차트 불러오기 실패**: ${err.message}`);
@@ -151,46 +158,36 @@ module.exports = {
       }
 
       // G. 재생 컨트롤 버튼들 (⏯️/⏸/▶/⏭/⏹/🔁/🔀/📜)
-      if (!queue) {
+      if (!queue || !queue.player) {
         return interaction.reply({ content: '❌ 현재 실행 중인 음악 큐가 없습니다.', ephemeral: true });
       }
 
       if (customId === 'btn_toggle_play') {
-        if (queue.player.state.status === 'paused') {
-          queue.player.unpause();
-          if (queue.lastPauseTime) {
-            queue.pausedDuration += (Date.now() - queue.lastPauseTime);
-            queue.lastPauseTime = 0;
-          }
+        if (queue.player.paused) {
+          queue.player.pause(false); // 재개
           queue._updateNowPlayingMessage();
           return interaction.reply({ content: '▶ **재생이 재개되었습니다.**', ephemeral: true });
         } else {
-          queue.player.pause();
-          queue.lastPauseTime = Date.now();
+          queue.player.pause(true); // 일시정지
           queue._updateNowPlayingMessage();
           return interaction.reply({ content: '⏸ **재생을 일시정지했습니다.**', ephemeral: true });
         }
       }
 
       if (customId === 'btn_pause') {
-        queue.player.pause();
-        queue.lastPauseTime = Date.now();
+        queue.player.pause(true);
         queue._updateNowPlayingMessage();
         return interaction.reply({ content: '⏸ **일시정지되었습니다.**', ephemeral: true });
       }
 
       if (customId === 'btn_resume') {
-        queue.player.unpause();
-        if (queue.lastPauseTime) {
-          queue.pausedDuration += (Date.now() - queue.lastPauseTime);
-          queue.lastPauseTime = 0;
-        }
+        queue.player.pause(false);
         queue._updateNowPlayingMessage();
         return interaction.reply({ content: '▶ **재생이 재개되었습니다.**', ephemeral: true });
       }
 
       if (customId === 'btn_skip') {
-        queue.player.stop();
+        queue.player.skip();
         return interaction.reply({ content: '⏭ **현재 곡을 스킵했습니다.**', ephemeral: true });
       }
 
@@ -202,16 +199,13 @@ module.exports = {
       if (customId === 'btn_loop') {
         const nextLoop = queue.loopMode === 'off' ? 'track' : queue.loopMode === 'track' ? 'queue' : 'off';
         queue.loopMode = nextLoop;
+        queue.player.setLoop(nextLoop === 'off' ? 'none' : nextLoop);
         queue._updateNowPlayingMessage();
         return interaction.reply({ content: `🔁 **반복 모드가 [ ${nextLoop} ](으)로 설정되었습니다.**`, ephemeral: true });
       }
 
       if (customId === 'btn_shuffle') {
-        // Fisher-Yates 셔플
-        for (let i = queue.songs.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [queue.songs[i], queue.songs[j]] = [queue.songs[j], queue.songs[i]];
-        }
+        queue.player.queue.shuffle();
         return interaction.reply({ content: '🔀 **대기열이 셔플되었습니다.**', ephemeral: true });
       }
 

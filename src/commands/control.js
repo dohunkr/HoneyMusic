@@ -22,31 +22,26 @@ module.exports = {
       .addIntegerOption(opt => opt.setName('크기').setDescription('볼륨 크기').setRequired(true).setMinValue(0).setMaxValue(200))),
 
   async execute(interaction) {
-    const queue = musicManager.queues.get(interaction.guild.id);
-    if (!queue || (!queue.currentSong && queue.songs.length === 0)) {
+    const queue = musicManager.getQueue(interaction.guild.id);
+    if (!queue || !queue.player) {
       return interaction.reply({ content: '❌ 현재 실행 중인 음악 서비스가 없습니다.', ephemeral: true });
     }
 
     const sub = interaction.options.getSubcommand();
 
     if (sub === '스킵') {
-      queue.player.stop();
+      queue.player.skip();
       return interaction.reply({ content: '⏭ **현재 곡을 스킵했습니다.**', ephemeral: true });
     }
 
     if (sub === '일시정지') {
-      queue.player.pause();
-      queue.lastPauseTime = Date.now();
+      queue.player.pause(true);
       queue._updateNowPlayingMessage();
       return interaction.reply({ content: '⏸ **재생을 일시정지했습니다.**', ephemeral: true });
     }
 
     if (sub === '재개') {
-      queue.player.unpause();
-      if (queue.lastPauseTime) {
-        queue.pausedDuration += (Date.now() - queue.lastPauseTime);
-        queue.lastPauseTime = 0;
-      }
+      queue.player.pause(false);
       queue._updateNowPlayingMessage();
       return interaction.reply({ content: '▶ **재생을 재개합니다.**', ephemeral: true });
     }
@@ -59,6 +54,7 @@ module.exports = {
     if (sub === '반복') {
       const mode = interaction.options.getString('모드');
       queue.loopMode = mode;
+      queue.player.setLoop(mode === 'off' ? 'none' : mode);
       queue._updateNowPlayingMessage();
       return interaction.reply({ content: `🔁 **반복 모드가 [ ${mode} ](으)로 변경되었습니다.**`, ephemeral: true });
     }
@@ -66,16 +62,14 @@ module.exports = {
     if (sub === '배속') {
       const speed = interaction.options.getNumber('속도');
       queue.speed = speed;
+      queue.applyFilters(); // 필터 적용
       queue._updateNowPlayingMessage();
-      return interaction.reply({ content: `⏩ **재생 속도가 ${speed}x 로 설정되었습니다. (다음 곡부터 바로 적용)**`, ephemeral: true });
+      return interaction.reply({ content: `⏩ **재생 속도가 ${speed}x 로 설정되었습니다. (음보정 필터 실시간 갱신)**`, ephemeral: true });
     }
 
     if (sub === '볼륨') {
       const vol = interaction.options.getInteger('크기');
-      queue.volume = vol;
-      if (queue.player.state.status === 'playing' && queue.player.state.resource?.volume) {
-        queue.player.state.resource.volume.setVolume(vol / 100);
-      }
+      queue.player.setVolume(vol);
       queue._updateNowPlayingMessage();
       return interaction.reply({ content: `🔊 **볼륨이 ${vol}% 로 설정되었습니다.**`, ephemeral: true });
     }

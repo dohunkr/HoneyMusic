@@ -19,16 +19,17 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const queue = musicManager.queues.get(interaction.guild.id);
-    if (!queue || !queue.currentSong) {
+    const queue = musicManager.getQueue(interaction.guild.id);
+    if (!queue || !queue.player) {
       return interaction.reply({ content: '❌ 현재 재생 중인 음악이 없습니다.', ephemeral: true });
     }
 
     const preset = interaction.options.getString('프리셋');
     queue.presetKey = preset;
+    queue.applyFilters(); // 필터 즉시 적용
 
     await interaction.reply({
-      content: `🎚️ **음보정 프리셋이 [ ${AudioEnhancer.getPresetName(preset)} ](으)로 변경되었습니다.**\n다음 곡부터 적용되며, 현재 곡 재생을 유지합니다.`,
+      content: `🎚️ **음보정 프리셋이 [ ${AudioEnhancer.getPresetName(preset)} ](으)로 변경 및 실시간 적용되었습니다.**`,
       ephemeral: true
     });
 

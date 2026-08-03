@@ -11,12 +11,13 @@ module.exports = {
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
-    const queue = musicManager.queues.get(interaction.guild.id);
+    const queue = musicManager.getQueue(interaction.guild.id);
     let titleToSearch = interaction.options.getString('곡제목');
 
     if (!titleToSearch) {
-      if (queue && queue.currentSong) {
-        titleToSearch = queue.currentSong.title;
+      const currentSong = queue?.player?.data?.get('currentSong');
+      if (currentSong) {
+        titleToSearch = currentSong.title;
       } else {
         return interaction.editReply('❌ 검색할 곡 제목을 입력하거나 음악을 재생해 주세요.');
       }

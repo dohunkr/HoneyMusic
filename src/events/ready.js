@@ -15,6 +15,26 @@ module.exports = {
 
     client.user.setActivity('🎵 라이브 공연장 사운드 오디오', { type: 2 });
 
+    // Kazagumo 플레이어의 다음 트랙 자동 재생 시 메타데이터 갱신 리스너 등록
+    client.manager.on('playerStart', (player, track) => {
+      const musicManager = require('../music/MusicManager');
+      const queue = musicManager.getQueue(player.guildId);
+      if (queue) {
+        const songItem = {
+          query: track.uri,
+          title: track.title,
+          url: track.uri,
+          requestedBy: track.requester?.id || client.user.id,
+          duration: Math.floor(track.length / 1000),
+          thumbnail: track.thumbnail || '',
+          artist: track.author || '알 수 없음',
+          trackData: track
+        };
+        player.data.set('currentSong', songItem);
+        queue._updateNowPlayingMessage();
+      }
+    });
+
     // 봇 구동 시 Slash Commands 자동 등록/배포
     if (config.token && config.clientId) {
       try {

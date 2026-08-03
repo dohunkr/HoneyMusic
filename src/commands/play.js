@@ -1,6 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const musicManager = require('../music/MusicManager');
-const play = require('play-dl');
+const AudioStreamer = require('../audio/AudioStreamer');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -23,41 +23,31 @@ module.exports = {
 
     try {
       const queue = await musicManager.joinChannel(voiceChannel, interaction.channel);
-      
-      let videoUrl = query;
-      let videoTitle = query;
-      
-      const isUrl = query.startsWith('http://') || query.startsWith('https://');
-      if (!isUrl) {
-        const searchResult = await play.search(query, { limit: 1 });
-        if (!searchResult || searchResult.length === 0) {
-          return interaction.editReply(`❌ 검색 결과가 없습니다: ${query}`);
-        }
-        videoUrl = searchResult[0].url;
-        videoTitle = searchResult[0].title;
-      } else {
-        if (play.yt_validate(query) === 'video') {
-          const info = await play.video_basic_info(query);
-          videoUrl = info.video_details.url;
-          videoTitle = info.video_details.title;
-        }
-      }
+      const { track, metadata } = await AudioStreamer.searchTracks(interaction.client.manager, query, interaction.user.id);
 
       const songItem = {
-        query: videoUrl,
-        title: videoTitle,
-        url: videoUrl,
+        query: metadata.url,
+        title: metadata.title,
+        url: metadata.url,
         requestedBy: interaction.user.id,
-        duration: 0
+        duration: metadata.duration,
+        thumbnail: metadata.thumbnail,
+        artist: metadata.artist,
+        trackData: track // Lavalink raw track
       };
 
-      queue.songs.push(songItem);
-
-      if (queue.player.state.status !== 'playing' && !queue.currentSong) {
-        queue.playNext();
-        await interaction.editReply(`🎵 **재생을 시작합니다**: [${videoTitle}](${videoUrl})`);
+      // 플레이어 큐에 트랙 삽입
+      queue.player.queue.add(track);
+      
+      // 메타데이터 바인딩
+      if (!queue.player.data.get('currentSong')) {
+        queue.player.data.set('currentSong', songItem);
+        queue.player.play();
+        // 음보정 및 속도 필터 설정 즉시 반영
+        queue.applyFilters();
+        await interaction.editReply(`🎵 **재생을 시작합니다**: [${metadata.title}](${metadata.url})`);
       } else {
-        await interaction.editReply(`📥 **대기열에 추가되었습니다** (${queue.songs.length}번째): [${videoTitle}](${videoUrl})`);
+        await interaction.editReply(`📥 **대기열에 추가되었습니다** (${queue.player.queue.length}번째): [${metadata.title}](${metadata.url})`);
       }
     } catch (err) {
       await interaction.editReply(`❌ **재생 요청 실패**: ${err.message}`);
