@@ -51,34 +51,43 @@ class AudioStreamer {
       }
     }
 
-    // 2. ytdl-core로 오디오 스트림 추출 (쿠키 적용)
-    const cookieHeader = process.env.YOUTUBE_COOKIE;
-    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
-
-    const reqHeaders = { 
-      'User-Agent': userAgent,
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
-    };
-    if (cookieHeader) reqHeaders['Cookie'] = cookieHeader;
-
+    // 2. youtubei.js(Innertube)로 오디오 스트림 추출 (쿠키 적용)
+    const { Innertube } = require('youtubei.js');
     let rawStream;
     try {
-      // ytdl-core v4 최신 스펙: createAgent를 이용하여 차단율 최소화
-      const agent = ytdl.createAgent(undefined, {
-        headers: reqHeaders
+      const innertubeOptions = {};
+      if (process.env.YOUTUBE_COOKIE) {
+        innertubeOptions.cookie = process.env.YOUTUBE_COOKIE;
+      }
+      
+      const youtube = await Innertube.create(innertubeOptions);
+      // URL에서 Video ID 추출
+      let videoId = url;
+      if (url.includes('v=')) {
+        videoId = url.split('v=')[1].split('&')[0];
+      } else if (url.includes('youtu.be/')) {
+        videoId = url.split('youtu.be/')[1].split('?')[0];
+      }
+
+      console.log(`[AudioStreamer] youtubei.js 스트리밍 시작 (Video ID: ${videoId})`);
+      const stream = await youtube.download(videoId, {
+        type: 'audio',
+        quality: 'best',
+        format: 'any'
       });
 
-      rawStream = ytdl(url, {
-        filter: 'audioonly',
-        highWaterMark: 1 << 25,
-        quality: 'highestaudio',
-        dlChunkSize: 0, // 스트림 끊김 최소화
-        agent: agent
-      });
-      console.log(`[AudioStreamer] ytdl-core 스트림 생성 성공 (쿠키 적용 여부: ${!!cookieHeader})`);
+      // youtubei.js는 Web API ReadableStream을 반환할 수 있으므로, node stream으로 변환해줍니다.
+      const { Readable } = require('stream');
+      rawStream = Readable.from(stream);
+      console.log('[AudioStreamer] youtubei.js 스트림 노드 변환 성공');
     } catch (e) {
-      console.warn('[AudioStreamer] ytdl-core agent 생성 실패, 일반 requestOptions 폴백:', e.message);
+      console.error('[AudioStreamer] youtubei.js 스트리밍 실패, ytdl-core 폴백 시도:', e.message);
+      // ytdl-core 폴백
+      const cookieHeader = process.env.YOUTUBE_COOKIE;
+      const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+      const reqHeaders = { 'User-Agent': userAgent };
+      if (cookieHeader) reqHeaders['Cookie'] = cookieHeader;
+
       rawStream = ytdl(url, {
         filter: 'audioonly',
         highWaterMark: 1 << 25,
